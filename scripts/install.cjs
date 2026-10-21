@@ -53,24 +53,24 @@ function releaseBase(version) {
   return base.includes('{version}') ? base.replaceAll('{version}', version) : `${base}/${version}`;
 }
 
-async function install() {
+async function install(options = {}) {
+  const version = options.version ?? process.env.CODEFACTOR_CORE_VERSION ?? config.version;
   const platform = `${process.platform}-${process.arch}`;
   if (!config.platforms.includes(platform)) throw new Error(`No Codefactor release for ${platform}`);
-  const destination = path.join(root, 'bin', `codefactor${process.platform === 'win32' ? '.exe' : ''}`);
+  const destination = options.destination || path.join(root, 'bin', `codefactor${process.platform === 'win32' ? '.exe' : ''}`);
   fs.mkdirSync(path.dirname(destination), {recursive: true});
-  const metadataPath = path.join(root, 'bin/codefactor.manifest.json');
+  const metadataPath = path.join(path.dirname(destination), 'codefactor.manifest.json');
   const override = process.env.CODEFACTOR_BINARY;
   if (override) {
     if (path.resolve(override) !== destination) fs.copyFileSync(override, destination);
     fs.chmodSync(destination, 0o755);
     return destination;
   }
-  const base = releaseBase(config.version);
-  const manifest = JSON.parse((await download(`${base}/manifest-${platform}.json`, 65536)).toString('utf8'));
+  if (typeof version !== "string" || version !== version.trim() || !/^(latest|[0-9]+\.[0-9]+\.[0-9]+)$/.test(version)) throw new Error("core.version must be latest or X.Y.Z");
+  const base = releaseBase(version);
+  const manifest = options.manifest || JSON.parse((await download(`${base}/manifest-${platform}.json`, 65536)).toString('utf8'));
   const filename = `codefactor-${platform}${process.platform === 'win32' ? '.exe' : ''}`;
-  if (typeof manifest.version !== 'string' || manifest.version !== manifest.version.trim() || !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(manifest.version) ||
-      (config.version !== 'latest' && manifest.version !== config.version) || manifest.platform !== platform || manifest.file !== filename ||
-      !/^[a-f0-9]{64}$/.test(manifest.sha256 || '')) throw new Error('Invalid Codefactor release manifest');
+  require('./core.cjs').validateManifest(manifest, version);
   if (fs.existsSync(destination) && fs.statSync(destination).size === manifest.size &&
       crypto.createHash('sha256').update(fs.readFileSync(destination)).digest('hex') === manifest.sha256) {
     fs.chmodSync(destination, 0o755);
@@ -91,5 +91,10 @@ async function install() {
   return destination;
 }
 
-if (require.main === module) install().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {install};
+module.exports = {install, download, releaseBase};
+
+if (require.main === module) {
+  const cwd = process.env.npm_config_local_prefix || process.env.INIT_CWD || process.cwd();
+  const task = cwd !== root ? require('./core.cjs').update({cwd}) : install();
+  task.catch(error => { console.error(error.message); process.exitCode = 1; });
+}

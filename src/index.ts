@@ -1,6 +1,8 @@
 import {spawn} from 'node:child_process';
 import {existsSync} from 'node:fs';
-import {resolve, join} from 'node:path';
+import {resolve} from 'node:path';
+
+const core: {ConfigError: new (message: string) => Error; resolveBinary(context?: {root?: string; config?: string}): string; argumentContext(args: string[]): {root: string; config?: string}} = require('../scripts/core.cjs');
 
 export type Language = 'php' | 'python' | 'rust' | 'javascript' | 'typescript' | 'js' | 'ts';
 export type Direction = 'callers' | 'callees' | 'both';
@@ -29,11 +31,11 @@ function absolute(path: string): string {
 }
 
 export class Codefactor {
-  private readonly binary: string;
+  private readonly binary: string | undefined;
   private readonly timeoutMs: number;
   private readonly maxOutputBytes: number;
   constructor(options: ClientOptions = {}) {
-    this.binary = resolve(options.binary || process.env.CODEFACTOR_BINARY || join(__dirname, '..', 'bin', `codefactor${process.platform === 'win32' ? '.exe' : ''}`));
+    this.binary = options.binary ? resolve(options.binary) : undefined;
     this.timeoutMs = options.timeoutMs ?? 120000;
     this.maxOutputBytes = options.maxOutputBytes ?? 512 * 1024 * 1024;
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0 || !Number.isSafeInteger(this.maxOutputBytes) || this.maxOutputBytes <= 0)
@@ -65,9 +67,12 @@ export class Codefactor {
   }
 
   private run<T = Record<string, unknown>>(args: string[]): Promise<CommandResult<T>> {
-    if (!existsSync(this.binary)) return Promise.reject(new CodefactorError('Codefactor binary missing; reinstall the npm package with scripts enabled'));
+    let binary: string;
+    try { binary = this.binary || core.resolveBinary(core.argumentContext(args)); }
+    catch (error) { return Promise.reject(new CodefactorError((error as Error).message, error instanceof core.ConfigError ? 3 : undefined)); }
+    if (!existsSync(binary)) return Promise.reject(new CodefactorError('Codefactor binary missing; run codefactor core update or check CODEFACTOR_BINARY'));
     return new Promise((resolveResult, reject) => {
-      const child = spawn(this.binary, args, {shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']});
+      const child = spawn(binary, args, {shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']});
       const stdout: Buffer[] = [], stderr: Buffer[] = [];
       let size = 0;
       let failure: CodefactorError | undefined;
