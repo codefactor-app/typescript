@@ -1,0 +1,22 @@
+{
+  "name": "@codefactor/codefactor",
+  "version": "0.1.1",
+  "description": "Codefactor CLI for npm projects, with an optional TypeScript API",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"}},
+  "bin": {"codefactor": "scripts/cli.cjs"},
+  "files": ["dist", "scripts", "release.json", "certs", "LICENSE", "README.md", "examples", "docs"],
+  "engines": {"node": ">=18"},
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
+    "postinstall": "node scripts/install.cjs",
+    "test": "npm run build && node --test tests/*.cjs"
+  },
+  "devDependencies": {"@types/node": "^22.0.0", "typescript": "^5.8.0"},
+  "repository": {"type": "git", "url": "https://gitlab.local/codefactor/typescript.git"},
+  "publishConfig": {"registry": "https://gitlab.local/api/v4/projects/42/packages/npm/"}
+}

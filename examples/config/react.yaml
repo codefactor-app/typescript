@@ -1,0 +1,114 @@
+# JavaScript и TypeScript: фронтенд на React (Vite, Create React App, Next.js).
+# Слои описаны по каталогам src/; каталоги, которых нет в проекте, просто
+# не дают совпадений. Подстройте имена под свой проект.
+config_version: 1
+languages:
+  enabled: [javascript, typescript]
+paths:
+  include: ["**"]
+  exclude:
+    - "**/__tests__/**"
+    - "**/__mocks__/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "e2e/**"
+    - "cypress/**"
+    - "playwright/**"
+    - "dist/**"
+    - "build/**"
+    - "out/**"
+    - ".next/**"
+    - "coverage/**"
+    - "public/**" # Статические ассеты и service worker.
+    - "storybook-static/**"
+    - "**/*.stories.*"
+    - "**/*.d.ts"
+    - "**/generated/**"
+    - "**/__generated__/**"
+    - "**/*.generated.*"
+vendor:
+  paths: ["node_modules/**", "**/node_modules/**"]
+  mode: collapsed
+  parse: lazy
+limits:
+  file_lines: {warn: 400, error: 800}
+  function_lines: {warn: 40, error: 100}
+  functions_per_file: {warn: 20, error: 40}
+  methods_per_class: {warn: 15, error: 30}
+  function_params: {warn: 4, error: 7}
+  cyclomatic_complexity: {warn: 10, error: 20}
+  cognitive_complexity: {warn: 15, error: 30}
+  nesting_depth: {warn: 4, error: 6}
+  module_cycle: {warn: 0} # Цикл импортов между файлами; блокирует CI с --fail-on-warn.
+  by_path:
+    # JSX-разметка удлиняет функцию компонента, а условный рендеринг
+    # добавляет ветвления; пороги для компонентов и страниц мягче.
+    - glob: "src/components/**"
+      function_lines: {warn: 80, error: 160}
+      cyclomatic_complexity: {warn: 15, error: 30}
+    - glob: "src/pages/**"
+      function_lines: {warn: 80, error: 160}
+      cyclomatic_complexity: {warn: 15, error: 30}
+    - glob: "src/app/**"
+      function_lines: {warn: 80, error: 160}
+      cyclomatic_complexity: {warn: 15, error: 30}
+    - glob: "app/**"
+      function_lines: {warn: 80, error: 160}
+      cyclomatic_complexity: {warn: 15, error: 30}
+    # Reducer со switch по типам действий.
+    - glob: "src/store/**"
+      cyclomatic_complexity: {warn: 15, error: 30}
+sets:
+  pages: ["dir:src/pages", "dir:src/app", "dir:app", "dir:src/routes"]
+  components: ["dir:src/components"]
+  hooks: ["dir:src/hooks"]
+  services: ["dir:src/services", "dir:src/api"]
+  store: ["dir:src/store"]
+external:
+  capture_args: literal
+  max_arg_length: 160
+  redact: ['(?i)(token|password|secret|api[_-]?key)=[^&\s]+']
+  # fetch встроен. Цель вызова для import axios from 'axios': axios.default::<метод>;
+  # ведущий * покрывает префикс разрешения модуля.
+  rules:
+    - {category: http, pattern: '*axios.default::get', library: axios, operation: get}
+    - {category: http, pattern: '*axios.default::post', library: axios, operation: post}
+    - {category: http, pattern: '*axios.default::put', library: axios, operation: put}
+    - {category: http, pattern: '*axios.default::patch', library: axios, operation: patch}
+    - {category: http, pattern: '*axios.default::delete', library: axios, operation: delete}
+resolution:
+  node_conditions: [browser] # Ветви exports для браузерной сборки.
+architecture:
+  enabled: true
+  profile: strict
+  # Направление зависимостей: pages → components → hooks → services, store.
+  # Компоненты не знают о страницах, сервисы и store не знают об интерфейсе.
+  layers:
+    - name: pages
+      selectors: ["dir:src/pages", "dir:src/app", "dir:app", "dir:src/routes"]
+    - name: components
+      selectors: ["dir:src/components"]
+    - name: hooks
+      selectors: ["dir:src/hooks"]
+    - name: services
+      selectors: ["dir:src/services", "dir:src/api"]
+    - name: store
+      selectors: ["dir:src/store"]
+  forbidden_dependencies:
+    - {from: components, to: pages}
+    - {from: hooks, to: pages}
+    - {from: hooks, to: components}
+    - {from: services, to: pages}
+    - {from: services, to: components}
+    - {from: services, to: hooks}
+    - {from: store, to: pages}
+    - {from: store, to: components}
+    - {from: store, to: hooks}
+  # Точка входа собирает роутер, провайдеры и store. Запись действует, только
+  # если её накрывает селектор слоя, например glob:src/**; иначе она безвредна.
+  composition_roots: ["file:src/main.tsx", "file:src/index.tsx", "file:src/App.tsx"]
+cache:
+  enabled: true
+  path: .analyzer-cache
+output:
+  formats: [console]

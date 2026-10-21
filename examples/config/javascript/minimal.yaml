@@ -1,0 +1,4 @@
+# JavaScript: минимальный конфиг. Остальное — defaults движка.
+config_version: 1
+languages:
+  enabled: [javascript]

@@ -1,0 +1,103 @@
+# JavaScript и TypeScript: приложение на NestJS со стандартной раскладкой
+# @nestjs/schematics. Слои определяются суффиксами файлов, поэтому не зависят
+# от каталогов модулей. Подстройте суффиксы и пороги под свой проект.
+config_version: 1
+languages:
+  enabled: [javascript, typescript]
+paths:
+  include: ["**"]
+  exclude:
+    - "test/**" # e2e-тесты из nest new.
+    - "**/*.spec.*"
+    - "**/*.e2e-spec.*"
+    - "**/__mocks__/**"
+    - "dist/**"
+    - "coverage/**"
+    - "**/migrations/**" # TypeORM, MikroORM, Prisma.
+    - "**/generated/**"
+    - "**/*.d.ts"
+vendor:
+  paths: ["node_modules/**", "**/node_modules/**"]
+  mode: collapsed
+  parse: lazy
+limits:
+  file_lines: {warn: 400, error: 800}
+  function_lines: {warn: 40, error: 100}
+  functions_per_file: {warn: 20, error: 40}
+  methods_per_class: {warn: 15, error: 30}
+  function_params: {warn: 4, error: 7}
+  cyclomatic_complexity: {warn: 10, error: 20}
+  cognitive_complexity: {warn: 15, error: 30}
+  nesting_depth: {warn: 4, error: 6}
+  lcom4: {warn: 2, error: 6} # Несколько независимых групп методов в классе.
+  module_cycle: {warn: 0} # Цикл импортов между файлами; блокирует CI с --fail-on-warn.
+  by_path:
+    # Обработчики контроллера независимы по замыслу, а аргументы приходят
+    # через @Param, @Query, @Body и внедрение зависимостей.
+    - glob: "**/*.controller.*"
+      lcom4: {warn: 10, error: 20}
+      function_params: {warn: 6, error: 10}
+    - glob: "**/*.resolver.*"
+      lcom4: {warn: 10, error: 20}
+      function_params: {warn: 6, error: 10}
+    - glob: "**/*.gateway.*"
+      lcom4: {warn: 10, error: 20}
+sets:
+  controllers: ["glob:**/*.controller.*", "glob:**/*.resolver.*", "glob:**/*.gateway.*"]
+  services: ["glob:**/*.service.*", "glob:**/*.handler.*"]
+  repositories: ["glob:**/*.repository.*"]
+  entities: ["glob:**/*.entity.*", "glob:**/*.schema.*"]
+  dto: ["glob:**/*.dto.*"]
+  modules: ["glob:**/*.module.*"]
+external:
+  capture_args: literal
+  max_arg_length: 160
+  redact: ['(?i)(token|password|secret|api[_-]?key)=[^&\s]+']
+  # Правила проверяются по порядку, первое совпадение побеждает. Цель вызова
+  # через типизированное свойство класса: <пакет>.<Класс>::<метод>, поэтому
+  # HttpService из @nestjs/axios идёт раньше общих правил для axios.
+  # Вызовы по цепочке свойств, например prisma.user.findMany(), не сопоставляются.
+  rules:
+    - {category: http, pattern: '*HttpService::*', library: nest-http, operation: request}
+    - {category: http, pattern: '*axios.default::*', library: axios, operation: request}
+    - {category: queue, pattern: '*ClientProxy::emit', library: nest-microservices, operation: emit}
+    - {category: queue, pattern: '*ClientProxy::send', library: nest-microservices, operation: send}
+    - {category: queue, pattern: '*Queue::add', library: bull, operation: add}
+    - {category: db, pattern: '*Repository::find*', library: typeorm, operation: find}
+    - {category: db, pattern: '*Repository::save', library: typeorm, operation: save}
+    - {category: db, pattern: '*Repository::delete', library: typeorm, operation: delete}
+    - {category: db, pattern: '*Model::find*', library: mongoose, operation: find}
+    - {category: db, pattern: '*Model::create', library: mongoose, operation: create}
+architecture:
+  enabled: true
+  profile: strict
+  # Направление зависимостей: controllers → services → repositories → entities.
+  # Сущности и DTO не знают о сервисах, репозитории и сервисы не знают о контроллерах.
+  layers:
+    - name: controllers
+      selectors: ["glob:**/*.controller.*", "glob:**/*.resolver.*", "glob:**/*.gateway.*"]
+    - name: services
+      selectors: ["glob:**/*.service.*", "glob:**/*.handler.*"]
+    - name: repositories
+      selectors: ["glob:**/*.repository.*"]
+    - name: entities
+      selectors: ["glob:**/*.entity.*", "glob:**/*.schema.*"]
+    - name: dto
+      selectors: ["glob:**/*.dto.*"]
+  forbidden_dependencies:
+    - {from: entities, to: repositories, principle: DIP}
+    - {from: entities, to: services, principle: DIP}
+    - {from: entities, to: controllers, principle: DIP}
+    - {from: dto, to: services, principle: DIP}
+    - {from: dto, to: controllers, principle: DIP}
+    - {from: repositories, to: services, principle: DIP}
+    - {from: repositories, to: controllers, principle: DIP}
+    - {from: services, to: controllers, principle: DIP}
+  # Модули и main.ts связывают провайдеры всех слоёв. Запись действует, только
+  # если их накрывает селектор слоя, например glob:src/**; иначе она безвредна.
+  composition_roots: ["glob:**/*.module.*", "file:src/main.ts"]
+cache:
+  enabled: true
+  path: .analyzer-cache
+output:
+  formats: [console]

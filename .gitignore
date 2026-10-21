@@ -1,0 +1,20 @@
+/node_modules/
+/dist/
+/bin/
+/*.tgz
+.analyzer-cache/
+
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+/auth.json
+/.npmrc
+/.pypirc
+
+# Local agent state
+/.planning/
+/.claude/
+/.codex/
+
+.DS_Store
