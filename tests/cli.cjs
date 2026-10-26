@@ -44,3 +44,9 @@ test('CLI forwards termination signals to core', {skip: process.platform === 'wi
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('snapshot option values do not replace the analysis root', () => {
+  const {argumentContext} = require('../scripts/core.cjs');
+  assert.equal(argumentContext(['scan', '--baseline', 'accepted.yaml', '--baseline-mode', 'regressions', 'project']).root, path.resolve('project'));
+  assert.equal(argumentContext(['baseline', 'create', '--capture', 'all', '--root', 'project']).root, path.resolve('project'));
+});

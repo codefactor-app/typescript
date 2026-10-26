@@ -6,7 +6,7 @@ const release = require('../release.json');
 const platform = `${process.platform}-${process.arch}`;
 const executable = process.platform === 'win32' ? 'codefactor.exe' : 'codefactor';
 class ConfigError extends Error {}
-const valueOptions = new Set(['--config', '--file', '--root', '--format', '--out', '--lang', '--limit', '--group-by', '--function', '--from', '--to', '--depth', '--max-paths', '--architecture-profile', '--log-level', '--color', '--port', '--host', '--a', '--b', '--category']);
+const valueOptions = new Set(['--baseline', '--baseline-mode', '--capture', '--config', '--file', '--root', '--format', '--out', '--lang', '--limit', '--group-by', '--function', '--from', '--to', '--depth', '--max-paths', '--architecture-profile', '--log-level', '--color', '--port', '--host', '--a', '--b', '--category']);
 function argumentContext(args, cwd = process.cwd()) {
   let config, root;
   const positional = [];

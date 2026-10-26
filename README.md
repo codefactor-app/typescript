@@ -198,14 +198,26 @@ npx --no-install codefactor scan . --strict-config --fail-on-warn --format sarif
 
 ### Подключение к существующему проекту
 
-Если в проекте уже много замечаний, после проверки первого отчёта создайте baseline:
+После просмотра первого отчёта сохраните принятые замечания в снимок допущений (baseline):
 
 ```sh
-npx --no-install codefactor baseline create --root . --config analyzer.yaml
-npx --no-install codefactor scan . --strict-config --fail-on-warn
+npx --no-install codefactor baseline create --root . --config analyzer.yaml --capture violations
+npx --no-install codefactor scan . --strict-config --baseline-mode review --fail-on-warn
 ```
 
-Baseline сохраняет текущие замечания в `.analyzer-baseline.json` и подавляет их в последующих проверках, чтобы выделить новые. Проверьте файл и закоммитьте вместе с `analyzer.yaml`. В `.gitignore` добавьте `.analyzer-cache/` и создаваемые отчёты.
+Снимок по умолчанию сохраняется в `.analyzer-baseline.yaml`. Принятое значение скрывается, пока не ухудшится: если для функции допущено 8 параметров, при 9 появится замечание «Допущено 8, сейчас 9» с уровнем действующего правила.
+
+Чтобы сохранить все метрики и проверять ухудшения даже ниже обычных порогов, используйте полный снимок:
+
+```sh
+npx --no-install codefactor baseline create --root . --config analyzer.yaml --capture all --baseline accepted.yaml
+npx --no-install codefactor scan . --baseline accepted.yaml --baseline-mode regressions --fail-on-warn
+npx --no-install codefactor baseline update --root . --config analyzer.yaml --baseline accepted.yaml
+```
+
+Режим `review` применяет обычные пороги с учётом допущений; `regressions` дополнительно показывает ухудшения сохранённых показателей. Оба режима доступны также у `metrics`. Сканирование не меняет снимок: новое состояние принимается только через `baseline update`. Проверка без допущений — `scan . --no-baseline`.
+
+Старые `.analyzer-baseline.json` продолжают читаться; перед режимом `regressions` обновите их через `baseline update --baseline .analyzer-baseline.json`. Проверьте снимок и закоммитьте вместе с `analyzer.yaml`. В `.gitignore` добавьте `.analyzer-cache/` и создаваемые отчёты. Формат файла, выбор путей и правила сравнения описаны в [справочнике снимков допущений](docs/configuration.md#снимки-допущений-и-проверка-ухудшений).
 
 ## Обновление
 
